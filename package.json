@@ -1,5 +1,5 @@
 {
-  "name": "preact-zustand-esbuild-golang",
+  "name": "preact-zustand-esbuild",
   "version": "0.1.0",
   "description": "Preact + Zustand with esbuild, so fast and light!",
   "main": "index.js",

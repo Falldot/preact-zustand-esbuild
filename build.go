@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/Falldot/pze/pkg/dev"
 	"github.com/evanw/esbuild/pkg/api"
 )
 
@@ -38,18 +39,6 @@ func main() {
 	fmt.Println("Build done.")
 }
 
-func errorHandler(errors []api.Message) {
-	if len(errors) > 0 {
-		str := api.FormatMessages(errors, api.FormatMessagesOptions{
-			Kind:  api.ErrorMessage,
-			Color: true,
-		})
-		for _, err := range str {
-			fmt.Println(err)
-		}
-	}
-}
-
 func HTML(to string) error {
 	bytesRead, err := ioutil.ReadFile(PATH_TO_INDEX_HTML)
 	if err != nil {
@@ -72,26 +61,33 @@ func JsDev() {
 		Bundle:      true,
 		Write:       true,
 		Metafile:    true,
+		Incremental: true,
 		Define: map[string]string{
 			"process.env.NODE_ENV": "development",
 		},
 		Platform: api.PlatformBrowser,
 		Target:   api.ES2021,
-		Watch: &api.WatchMode{
-			OnRebuild: func(result api.BuildResult) {
-				if len(result.Errors) > 0 {
-					errorHandler(result.Errors)
-				} else {
-					errorHandler(result.Warnings)
-				}
-			},
-		},
 	})
 
 	if len(result.Errors) > 0 {
-		errorHandler(result.Errors)
+		errorHandler(result.Errors, nil)
 		os.Exit(1)
 	}
+
+	var server dev.DevServer
+	server = dev.DevServer{
+		Port:      "8080",
+		WatchDir:  "src",
+		Index:     "build/index.html",
+		StaticDir: "build",
+		OnReload: func() {
+			result := result.Rebuild()
+			if errorHandler(result.Errors, server.SendError) {
+				server.SendReload()
+			}
+		},
+	}
+	go server.Start()
 }
 
 func JsRelease() {
@@ -114,7 +110,7 @@ func JsRelease() {
 	})
 
 	if len(result.Errors) > 0 {
-		errorHandler(result.Errors)
+		errorHandler(result.Errors, nil)
 		os.Exit(1)
 	}
 }
@@ -150,4 +146,21 @@ func SassRelease() error {
 		return err
 	}
 	return nil
+}
+
+func errorHandler(errors []api.Message, callback func(string)) bool {
+	if len(errors) > 0 {
+		str := api.FormatMessages(errors, api.FormatMessagesOptions{
+			Kind:  api.ErrorMessage,
+			Color: true,
+		})
+		for _, err := range str {
+			fmt.Println(err)
+			if callback != nil {
+				callback(err)
+			}
+		}
+		return false
+	}
+	return true
 }

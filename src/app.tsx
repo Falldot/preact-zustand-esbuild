@@ -7,7 +7,7 @@ function App() {
 	return (
 		<TextInput />
 	);
-  }
+}
 
 render(<App />, document.body);
 
